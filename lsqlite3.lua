@@ -45,6 +45,40 @@ end
 
 -- TODO: lsqlite3.temp_directory
 
+lsqlite3.OK = sqlite3.SQLITE_OK
+lsqlite3.ERROR = sqlite3.SQLITE_ERROR
+lsqlite3.INTERNAL = sqlite3.SQLITE_INTERNAL
+lsqlite3.PERM = sqlite3.SQLITE_PERM
+lsqlite3.ABORT = sqlite3.SQLITE_ABORT
+lsqlite3.BUSY = sqlite3.SQLITE_BUSY
+lsqlite3.LOCKED = sqlite3.SQLITE_LOCKED
+lsqlite3.NOMEM = sqlite3.SQLITE_NOMEM
+lsqlite3.READONLY = sqlite3.SQLITE_READONLY
+lsqlite3.INTERRUPT = sqlite3.SQLITE_INTERRUPT
+lsqlite3.IOERR = sqlite3.SQLITE_IOERR
+lsqlite3.CORRUPT = sqlite3.SQLITE_CORRUPT
+lsqlite3.NOTFOUND = sqlite3.SQLITE_NOTFOUND
+lsqlite3.FULL = sqlite3.SQLITE_FULL
+lsqlite3.CANTOPEN = sqlite3.SQLITE_CANTOPEN
+lsqlite3.PROTOCOL = sqlite3.SQLITE_PROTOCOL
+lsqlite3.EMPTY = sqlite3.SQLITE_EMPTY
+lsqlite3.SCHEMA = sqlite3.SQLITE_SCHEMA
+lsqlite3.TOOBIG = sqlite3.SQLITE_TOOBIG
+lsqlite3.CONSTRAINT = sqlite3.SQLITE_CONSTRAINT
+lsqlite3.MISMATCH = sqlite3.SQLITE_MISMATCH
+lsqlite3.MISUSE = sqlite3.SQLITE_MISUSE
+lsqlite3.NOLFS = sqlite3.SQLITE_NOLFS
+lsqlite3.FORMAT = sqlite3.SQLITE_FORMAT
+lsqlite3.NOTADB = sqlite3.SQLITE_NOTADB
+lsqlite3.RANGE = sqlite3.SQLITE_RANGE
+lsqlite3.ROW = sqlite3.SQLITE_ROW
+lsqlite3.DONE = sqlite3.SQLITE_DONE
+lsqlite3.INTEGER = sqlite3.SQLITE_INTEGER
+lsqlite3.FLOAT = sqlite3.SQLITE_FLOAT
+lsqlite3.TEXT = sqlite3.SQLITE_TEXT
+lsqlite3.BLOB = sqlite3.SQLITE_BLOB
+lsqlite3.NULL = sqlite3.SQLITE_NULL
+
 -- -------------------------- Database Methods -------------------------- --
 
 -- TODO: db:busy_handler
