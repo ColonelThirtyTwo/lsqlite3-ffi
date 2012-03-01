@@ -210,7 +210,7 @@ static const int SQLITE_INTEGER = 1;
 static const int SQLITE_FLOAT = 2;
 static const int SQLITE_BLOB = 4;
 static const int SQLITE_NULL = 5;
-static const int SQLITE3_TEXT = 3;
+static const int SQLITE_TEXT = 3;
 static const int SQLITE_UTF8 = 1;
 static const int SQLITE_UTF16LE = 2;
 static const int SQLITE_UTF16BE = 3;
@@ -280,10 +280,6 @@ static const int SQLITE_VTAB_CONSTRAINT_SUPPORT = 1;
 static const int SQLITE_ROLLBACK = 1;
 static const int SQLITE_FAIL = 3;
 static const int SQLITE_REPLACE = 5;
-
-// Workaround for LuaJIT only supporting specific static const values
-void* SQLITE_STATIC = ((void*)0);
-void* SQLITE_TRANSIENT = ((void*)-1);
 
 extern const char sqlite3_version[];
 const char *sqlite3_libversion(void);

@@ -2,11 +2,12 @@
 assert(jit, "lsqlite3_ffi must run on LuaJIT!")
 local ffi = require "ffi"
 
-ffi.cdef(assert(io.read((LSQLITE3_FFI_PATH or "").."/sqlite3.ffi")):read("*a"))
+ffi.cdef(assert(io.open((LSQLITE3_FFI_PATH or "").."/sqlite3.ffi")):read("*a"))
 local sqlite3 = ffi.load("sqlite3",true)
 local new_db_ptr = ffi.typeof("sqlite3*[1]")
 local new_stmt_ptr = ffi.typeof("sqlite3_stmt*[1]")
-local new_exec_ptr = ffi.typeof("int (*callback)(void*,int,char**,char**)")
+local new_exec_ptr = ffi.typeof("int (*)(void*,int,char**,char**)")
+local sqlite3_transient = ffi.cast("void*",-1)
 
 local value_handlers = {
 	[sqlite3.SQLITE_INTEGER] = function(stmt, n) return sqlite3.sqlite3_column_int(stmt, n) end,
@@ -22,12 +23,19 @@ sqlite_db.__index = sqlite_db
 local sqlite_stmt = {}
 sqlite_stmt.__index = sqlite_stmt
 
+lsqlite3.DEBUG = false
+
 -- -------------------------- Library Methods -------------------------- --
 
 function lsqlite3.open(filename)
 	local sdb = new_db_ptr()
-	sqlite3.sqlite3_open(filename, sdb)
-	return setmetatable({db = sdb[1]},sqlite_db)
+	local err = sqlite3.sqlite3_open(filename, sdb)
+	local db = sdb[0]
+	if err ~= sqlite3.SQLITE_OK then return nil, sqlite3.sqlite3_errmsg(db) end
+	return setmetatable({
+		db = db,
+		stmts = {}
+	},sqlite_db)
 end
 function lsqlite3.open_memory()
 	return lsqlite3.open(":memory:")
@@ -44,6 +52,12 @@ function lsqlite3.version()
 end
 
 -- TODO: lsqlite3.temp_directory
+
+function lsqlite3.assert(db,res)
+	if res ~= sqlite3.SQLITE_OK then
+		error(db:errmsg(),2)
+	end
+end
 
 lsqlite3.OK = sqlite3.SQLITE_OK
 lsqlite3.ERROR = sqlite3.SQLITE_ERROR
@@ -112,7 +126,6 @@ end
 sqlite_db.error_message = sqlite_db.errmsg
 
 function sqlite_db:exec(sql, func, udata)
-	local cb = nil
 	if func then
 		-- TODO: db:exec callbacks
 		error("callback functions not supported yet",2)
@@ -128,16 +141,23 @@ end
 function sqlite_db:isopen() return self.db and true or false end
 
 function sqlite_db:last_insert_rowid()
-	return sqlite3.sqlite3_last_insert_rowid(self.db)
+	return tonumber(sqlite3.sqlite3_last_insert_rowid(self.db))
 end
 
 -- TODO: db:nrows
 
-function db:prepare(sql)
+function sqlite_db:prepare(sql)
 	local stmtptr = new_stmt_ptr()
 	local r = sqlite3.sqlite3_prepare_v2(self.db, sql, #sql+1, stmtptr, nil)
 	if r ~= sqlite3.SQLITE_OK then return nil end
-	return setmetatable({stmt=stmtptr[1]},sqlite_stmt)
+	local stmt = setmetatable(
+	{
+		stmt=stmtptr[0],
+		db=self,
+		trace=lsqlite3.DEBUG and debug.traceback() or nil
+	},sqlite_stmt)
+	self.stmts[stmt] = stmt
+	return stmt
 end
 
 -- TODO: db:progress_handler
@@ -150,12 +170,21 @@ end
 -- TODO: db:trace
 -- TODO: db:urows
 
+function sqlite_db:dump_unfinalized_statements()
+	for _,stmt in pairs(self.stmts) do
+		print(tostring(stmt))
+		if stmt.trace then
+			print("defined at: "..stmt.trace)
+		end
+	end
+end
+
 -- -------------------------- Statement Methods -------------------------- --
 
 function sqlite_stmt:bind(n, value)
 	local t = type(value)
 	if t == "string" then
-		return sqlite3.sqlite3_bind_text(self.stmt, n, value, #value+1, sqlite3.SQLITE_TRANSIENT)
+		return sqlite3.sqlite3_bind_text(self.stmt, n, value, #value+1, sqlite3_transient)
 	elseif t == "number" then
 		return sqlite3.sqlite3_bind_double(self.stmt, n, value)
 	elseif t == "boolean" then
@@ -171,7 +200,7 @@ function sqlite_stmt:bind_blob(n,value)
 	if not value then
 		return sqlite3.sqlite3_bind_zeroblob(self.stmt, n, 0)
 	elseif type(value) == "cdata" or type(value) == "string" then
-		return sqlite3.sqlite3_bind_blob(self.stmt, n, value, type(value) == "cdata" and ffi.sizeof(value) or #value, sqlite3.SQLITE_TRANSIENT)
+		return sqlite3.sqlite3_bind_blob(self.stmt, n, value, type(value) == "cdata" and ffi.sizeof(value) or #value, sqlite3_transient)
 	else
 		error("invalid bind type: "..type(value))
 	end
@@ -198,6 +227,7 @@ end
 function sqlite_stmt:finalize()
 	local r = sqlite3.sqlite3_finalize(self.stmt)
 	self.stmt = nil
+	self.db.stmts[self] = nil
 	return r
 end
 
@@ -226,7 +256,7 @@ end
 function sqlite_stmt:get_values()
 	local tbl = {}
 	for i=0,sqlite3.sqlite3_column_count(self.stmt)-1 do
-		tbl[i] = self:get_value(i)
+		tbl[i+1] = self:get_value(i)
 	end
 	return tbl
 end
