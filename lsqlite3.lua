@@ -173,7 +173,7 @@ end
 
 function sqlite_stmt:get_named_types()
 	local tbl = {}
-	for i=0,sqlite3.sqlite3_column_count(self.stmt) do
+	for i=0,sqlite3.sqlite3_column_count(self.stmt)-1 do
 		tbl[ffi.string(sqlite3.sqlite3_column_name(self.stmt, n))] = ffi.string(sqlite3.sqlite3_column_decltype(self.stmt, n))
 	end
 	return tbl
@@ -191,15 +191,42 @@ end
 
 function sqlite_stmt:get_values()
 	local tbl = {}
-	for i=0,sqlite3.sqlite3_column_count(self.stmt) do
+	for i=0,sqlite3.sqlite3_column_count(self.stmt)-1 do
 		tbl[i] = self:get_value(i)
 	end
 	return tbl
 end
 
+function sqlite_stmt:get_values_unpacked(n)
+	n = n or 0
+	if n < sqlite3.sqlite3_column_count(self.stmt) then
+		return self:get_value(n), self:get_values_unpacked(n+1)
+	end
+end
+
 function sqlite_stmt:isopen() return self.stmt and true or false end
 
 -- TODO: stmt:nrows
+
+function sqlite_stmt:reset()
+	sqlite3.sqlite3_reset(self.stmt)
+end
+
+function sqlite_stmt:rows()
+	return function()
+		local r = self:step()
+		if r ~= sqlite3.SQLITE_ROW then return end -- TODO: check an error here?
+		return self:get_values()
+	end
+end
+
+function sqlite_stmt:rows_unpacked()
+	return function()
+		local r = self:step()
+		if r ~= sqlite3.SQLITE_ROW then return end -- TODO: check an error here?
+		return self:get_values_unpacked()
+	end
+end
 
 function sqlite_stmt:step()
 	return sqlite3.sqlite3_step(self.stmt)
