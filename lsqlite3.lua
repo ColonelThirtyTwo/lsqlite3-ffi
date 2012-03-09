@@ -2,11 +2,13 @@
 assert(jit, "lsqlite3_ffi must run on LuaJIT!")
 local ffi = require "ffi"
 
-ffi.cdef(assert(io.open((LSQLITE3_FFI_PATH or "").."/sqlite3.ffi")):read("*a"))
+ffi.cdef(assert(io.open((LSQLITE3_FFI_PATH or ".").."/sqlite3.ffi")):read("*a"))
 local sqlite3 = ffi.load("sqlite3",true)
 local new_db_ptr = ffi.typeof("sqlite3*[1]")
 local new_stmt_ptr = ffi.typeof("sqlite3_stmt*[1]")
 local new_exec_ptr = ffi.typeof("int (*)(void*,int,char**,char**)")
+local new_blob_ptr = ffi.typeof("sqlite3_blob*[1]")
+local new_bytearr = ffi.typeof("uint8_t[?]")
 local sqlite3_transient = ffi.cast("void*",-1)
 
 local value_handlers = {
@@ -22,6 +24,8 @@ local sqlite_db = {}
 sqlite_db.__index = sqlite_db
 local sqlite_stmt = {}
 sqlite_stmt.__index = sqlite_stmt
+local sqlite_blob = {}
+sqlite_blob.__index = sqlite_blob
 
 lsqlite3.DEBUG = false
 
@@ -34,7 +38,8 @@ function lsqlite3.open(filename)
 	if err ~= sqlite3.SQLITE_OK then return nil, sqlite3.sqlite3_errmsg(db) end
 	return setmetatable({
 		db = db,
-		stmts = {}
+		stmts = {},
+		blobs = {}
 	},sqlite_db)
 end
 function lsqlite3.open_memory()
@@ -170,11 +175,34 @@ end
 -- TODO: db:trace
 -- TODO: db:urows
 
+function sqlite_db:open_blob(db, tbl, column, row, write)
+	local blobptr = new_blob_ptr()
+	local r = sqlite3.sqlite3_blob_open(self.db, db, tbl, column, row, write and 1 or 0, blobptr)
+	if r ~= sqlite3.SQLITE_OK then return nil end
+	local blob = setmetatable(
+	{
+		blob = blobptr[0],
+		db = self,
+		trace = lsqlite3.DEBUG and debug.traceback() or nil
+	},sqlite_blob)
+	self.blobs[blob] = blob
+	return blob
+end
+
 function sqlite_db:dump_unfinalized_statements()
 	for _,stmt in pairs(self.stmts) do
 		print(tostring(stmt))
 		if stmt.trace then
 			print("defined at: "..stmt.trace)
+		end
+	end
+end
+
+function sqlite_db:dump_unclosed_blobs()
+	for _,blob in pairs(self.blobs) do
+		print(tostring(blob))
+		if blob.trace then
+			print("defined at: "..blob.trace)
 		end
 	end
 end
@@ -297,5 +325,40 @@ function sqlite_stmt:step()
 end
 
 -- TODO: stmt:urows
+
+-- -------------------------- Blob Methods -------------------------- --
+
+function sqlite_blob:read(numbytes, offset)
+	local buffer = new_bytearr(numbytes)
+	local r = sqlite3.sqlite3_blob_read(self.blob, buffer, numbytes, offset or 0)
+	return r == sqlite3.SQLITE_OK and buffer or nil
+end
+
+function sqlite_blob:length()
+	return sqlite3.sqlite3_blob_bytes(self.blob)
+end
+sqlite_blob.__len = sqlite_blob.length
+
+function sqlite_blob:write(offset, data, datalen)
+	if type(data) == "string" then
+		datalen = #data
+		data = new_bytearr(datalen, data)
+	else assert(datalen and type(datalen) == "number") end
+	
+	return sqlite3.sqlite3_blob_write(self.blob, data, datalen, offset)
+end
+
+function sqlite_blob:close()
+	local r = sqlite3.sqlite3_blob_close(self.blob)
+	if r == sqlite3.SQLITE_OK then
+		self.blob = nil
+		self.db.blobs[self] = nil
+	end
+	return r
+end
+
+function sqlite_blob:reopen(row)
+	return sqlite3.sqlite3_blob_reopen(self.blob, row)
+end
 
 return lsqlite3
