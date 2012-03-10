@@ -226,7 +226,7 @@ end
 
 function sqlite_stmt:bind_blob(n,value,len)
 	if not value then
-		return sqlite3.sqlite3_bind_zeroblob(self.stmt, n, 0)
+		return sqlite3.sqlite3_bind_zeroblob(self.stmt, n, len or 0)
 	elseif type(value) == "string" then
 		return sqlite3.sqlite3_bind_blob(self.stmt, n, value, len or #value, sqlite3_transient)
 	elseif type(value) == "cdata" then
