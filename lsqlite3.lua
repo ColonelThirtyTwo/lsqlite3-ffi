@@ -224,11 +224,13 @@ function sqlite_stmt:bind(n, value)
 	else error("invalid bind type: "..t,2) end
 end
 
-function sqlite_stmt:bind_blob(n,value)
+function sqlite_stmt:bind_blob(n,value,len)
 	if not value then
 		return sqlite3.sqlite3_bind_zeroblob(self.stmt, n, 0)
-	elseif type(value) == "cdata" or type(value) == "string" then
-		return sqlite3.sqlite3_bind_blob(self.stmt, n, value, type(value) == "cdata" and ffi.sizeof(value) or #value, sqlite3_transient)
+	elseif type(value) == "string" then
+		return sqlite3.sqlite3_bind_blob(self.stmt, n, value, len or #value, sqlite3_transient)
+	elseif type(value) == "cdata" then
+		return sqlite3.sqlite3_bind_blob(self.stmt, n, value, len, sqlite3_transient)
 	else
 		error("invalid bind type: "..type(value))
 	end
