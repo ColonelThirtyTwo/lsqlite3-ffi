@@ -177,7 +177,7 @@ end
 
 function sqlite_db:open_blob(db, tbl, column, row, write)
 	local blobptr = new_blob_ptr()
-	local r = sqlite3.sqlite3_blob_open(self.db, db, tbl, column, row, write and 1 or 0, blobptr)
+	local r = sqlite3.sqlite3_blob_open(self.db, db or "main", tbl, column, row, write, blobptr)
 	if r ~= sqlite3.SQLITE_OK then return nil end
 	local blob = setmetatable(
 	{
@@ -330,7 +330,7 @@ end
 
 function sqlite_blob:read(numbytes, offset)
 	local buffer = new_bytearr(numbytes)
-	local r = sqlite3.sqlite3_blob_read(self.blob, buffer, numbytes, offset or 0)
+	local r = sqlite3.sqlite3_blob_read(self.blob, buffer, numbytes or #self, offset or 0)
 	return r == sqlite3.SQLITE_OK and buffer or nil
 end
 
@@ -344,7 +344,6 @@ function sqlite_blob:write(offset, data, datalen)
 		datalen = #data
 		data = new_bytearr(datalen, data)
 	else assert(datalen and type(datalen) == "number") end
-	
 	return sqlite3.sqlite3_blob_write(self.blob, data, datalen, offset)
 end
 
