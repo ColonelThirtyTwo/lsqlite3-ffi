@@ -58,12 +58,6 @@ end
 
 -- TODO: lsqlite3.temp_directory
 
-function lsqlite3.assert(db,res)
-	if res ~= sqlite3.SQLITE_OK then
-		error(db:errmsg(),2)
-	end
-end
-
 lsqlite3.OK = sqlite3.SQLITE_OK
 lsqlite3.ERROR = sqlite3.SQLITE_ERROR
 lsqlite3.INTERNAL = sqlite3.SQLITE_INTERNAL
@@ -112,7 +106,7 @@ function sqlite_db:close()
 	if r == sqlite3.SQLITE_OK then
 		self.db = nil
 	end
-	return r
+	self.db:check(r)
 end
 
 -- TODO: db:close_vm
@@ -136,11 +130,11 @@ function sqlite_db:exec(sql, func, udata)
 		error("callback functions not supported yet",2)
 	end
 	
-	return sqlite3.sqlite3_exec(self.db, sql, nil, nil, nil)
+	self.db:check(sqlite3.sqlite3_exec(self.db, sql, nil, nil, nil))
 end
 
 function sqlite_db:interrupt()
-	return sqlite3.sqlite3_interrupt(self.db)
+	sqlite3.sqlite3_interrupt(self.db)
 end
 
 function sqlite_db:isopen() return self.db and true or false end
@@ -153,8 +147,7 @@ end
 
 function sqlite_db:prepare(sql)
 	local stmtptr = new_stmt_ptr()
-	local r = sqlite3.sqlite3_prepare_v2(self.db, sql, #sql+1, stmtptr, nil)
-	if r ~= sqlite3.SQLITE_OK then return nil end
+	self.db:check(sqlite3.sqlite3_prepare_v2(self.db, sql, #sql+1, stmtptr, nil))
 	local stmt = setmetatable(
 	{
 		stmt=stmtptr[0],
@@ -174,6 +167,23 @@ end
 
 -- TODO: db:trace
 -- TODO: db:urows
+
+function sqlite_db:check(ret)
+	if ret ~= sqlite3.SQLITE_OK then
+		error(self:errmsg())
+	end
+	return ret
+end
+
+function sqlite_db:checkstep(ret)
+	if ret == sqlite3.SQLITE_ROW then
+		return true
+	elseif ret == sqlite3.SQLITE_DONE then
+		return false
+	else
+		error(self:errmsg())
+	end
+end
 
 function sqlite_db:open_blob(db, tbl, column, row, write)
 	local blobptr = new_blob_ptr()
@@ -212,25 +222,25 @@ end
 function sqlite_stmt:bind(n, value)
 	local t = type(value)
 	if t == "string" then
-		return sqlite3.sqlite3_bind_text(self.stmt, n, value, #value+1, sqlite3_transient)
+		self.db:check(sqlite3.sqlite3_bind_text(self.stmt, n, value, #value+1, sqlite3_transient))
 	elseif t == "number" then
-		return sqlite3.sqlite3_bind_double(self.stmt, n, value)
+		self.db:check(sqlite3.sqlite3_bind_double(self.stmt, n, value))
 	elseif t == "boolean" then
-		return sqlite3.sqlite3_bind_int(self.stmt, n, value)
+		self.db:check(sqlite3.sqlite3_bind_int(self.stmt, n, value))
 	elseif t == "nil" then
-		return sqlite3.sqlite3_bind_null(self.stmt, n)
+		self.db:check(sqlite3.sqlite3_bind_null(self.stmt, n))
 	elseif t == "cdata" then
-		return sqlite3.sqlite3_bind_int64(self.stmt, n, ffi.cast("sqlite3_int64",value))
+		self.db:check(sqlite3.sqlite3_bind_int64(self.stmt, n, ffi.cast("sqlite3_int64",value)))
 	else error("invalid bind type: "..t,2) end
 end
 
 function sqlite_stmt:bind_blob(n,value,len)
 	if not value then
-		return sqlite3.sqlite3_bind_zeroblob(self.stmt, n, len or 0)
+		self.db:check(sqlite3.sqlite3_bind_zeroblob(self.stmt, n, len or 0))
 	elseif type(value) == "string" then
-		return sqlite3.sqlite3_bind_blob(self.stmt, n, value, len or #value, sqlite3_transient)
+		self.db:check(sqlite3.sqlite3_bind_blob(self.stmt, n, value, len or #value, sqlite3_transient))
 	elseif type(value) == "cdata" then
-		return sqlite3.sqlite3_bind_blob(self.stmt, n, value, len, sqlite3_transient)
+		self.db:check(sqlite3.sqlite3_bind_blob(self.stmt, n, value, len, sqlite3_transient))
 	else
 		error("invalid bind type: "..type(value))
 	end
@@ -256,9 +266,12 @@ end
 
 function sqlite_stmt:finalize()
 	local r = sqlite3.sqlite3_finalize(self.stmt)
-	self.stmt = nil
-	self.db.stmts[self] = nil
-	return r
+	if r == sqlite3.SQLITE_OK then
+		self.stmt = nil
+		self.db.stmts[self] = nil
+	else
+		self.db:check(r)
+	end
 end
 
 function sqlite_stmt:get_name(n)
@@ -303,33 +316,37 @@ function sqlite_stmt:isopen() return self.stmt and true or false end
 -- TODO: stmt:nrows
 
 function sqlite_stmt:reset()
-	sqlite3.sqlite3_reset(self.stmt)
+	self.db:check(sqlite3.sqlite3_reset(self.stmt))
 end
 
 function sqlite_stmt:rows()
 	return function()
-		local r = self:step()
-		if r ~= sqlite3.SQLITE_ROW then return end -- TODO: check an error here?
-		return self:get_values()
+		if self:step() then
+			return self:get_values()
+		else
+			return nil
+		end
 	end
 end
 
 function sqlite_stmt:rows_unpacked()
 	return function()
-		local r = self:step()
-		if r ~= sqlite3.SQLITE_ROW then return end -- TODO: check an error here?
-		return self:get_values_unpacked()
+		if self:step() then
+			return self:get_values_unpacked()
+		else
+			return nil
+		end
 	end
 end
 
 function sqlite_stmt:step()
-	return sqlite3.sqlite3_step(self.stmt)
+	return self.db:checkstep(sqlite3.sqlite3_step(self.stmt))
 end
 
 -- TODO: stmt:urows
 
 function sqlite_stmt:clear_bindings()
-	return sqlite3.sqlite3_clear_bindings(self.stmt)
+	self.db:check(sqlite3.sqlite3_clear_bindings(self.stmt))
 end
 
 -- -------------------------- Blob Methods -------------------------- --
@@ -337,8 +354,8 @@ end
 function sqlite_blob:read(numbytes, offset, buffer)
 	numbytes = numbytes or #self
 	buffer = buffer or new_bytearr(numbytes)
-	local r = sqlite3.sqlite3_blob_read(self.blob, buffer, numbytes, offset or 0)
-	return r == sqlite3.SQLITE_OK and buffer or nil
+	self.db:check(sqlite3.sqlite3_blob_read(self.blob, buffer, numbytes, offset or 0))
+	return buffer
 end
 
 function sqlite_blob:length()
@@ -351,7 +368,7 @@ function sqlite_blob:write(offset, data, datalen)
 		datalen = #data
 		data = new_bytearr(datalen, data)
 	else assert(datalen and type(datalen) == "number") end
-	return sqlite3.sqlite3_blob_write(self.blob, data, datalen, offset)
+	self.db:check(sqlite3.sqlite3_blob_write(self.blob, data, datalen, offset))
 end
 
 function sqlite_blob:close()
@@ -359,12 +376,13 @@ function sqlite_blob:close()
 	if r == sqlite3.SQLITE_OK then
 		self.blob = nil
 		self.db.blobs[self] = nil
+	else
+		self.db:check(r)
 	end
-	return r
 end
 
 function sqlite_blob:reopen(row)
-	return sqlite3.sqlite3_blob_reopen(self.blob, row)
+	self.db:check(sqlite3.sqlite3_blob_reopen(self.blob, row))
 end
 
 return lsqlite3
