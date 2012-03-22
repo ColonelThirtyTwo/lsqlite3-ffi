@@ -330,9 +330,9 @@ end
 
 -- -------------------------- Blob Methods -------------------------- --
 
-function sqlite_blob:read(numbytes, offset)
+function sqlite_blob:read(numbytes, offset, buffer)
 	numbytes = numbytes or #self
-	local buffer = new_bytearr(numbytes)
+	buffer = buffer or new_bytearr(numbytes)
 	local r = sqlite3.sqlite3_blob_read(self.blob, buffer, numbytes, offset or 0)
 	return r == sqlite3.SQLITE_OK and buffer or nil
 end
