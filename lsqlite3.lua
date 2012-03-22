@@ -328,6 +328,10 @@ end
 
 -- TODO: stmt:urows
 
+function sqlite_stmt:clear_binds()
+	return sqlite3.sqlite3_clear_binds(self.stmt)
+end
+
 -- -------------------------- Blob Methods -------------------------- --
 
 function sqlite_blob:read(numbytes, offset, buffer)
