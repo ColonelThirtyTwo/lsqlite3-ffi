@@ -105,8 +105,9 @@ function sqlite_db:close()
 	local r = sqlite3.sqlite3_close(self.db)
 	if r == sqlite3.SQLITE_OK then
 		self.db = nil
+	else
+		self.db:check(r)
 	end
-	self.db:check(r)
 end
 
 -- TODO: db:close_vm
