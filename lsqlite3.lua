@@ -15,7 +15,7 @@ local value_handlers = {
 	[sqlite3.SQLITE_INTEGER] = function(stmt, n) return sqlite3.sqlite3_column_int(stmt, n) end,
 	[sqlite3.SQLITE_FLOAT] = function(stmt, n) return sqlite3.sqlite3_column_double(stmt, n) end,
 	[sqlite3.SQLITE_TEXT] = function(stmt, n) return ffi.string(sqlite3.sqlite3_column_text(stmt,n)) end,
-	[sqlite3.SQLITE_BLOB] = function(stmt, n) return ffi.string(sqlite3.sqlite_column_blob(stmt,n), sqlite3.sqlite3_column_bytes(stmt,n)) end,
+	[sqlite3.SQLITE_BLOB] = function(stmt, n) return ffi.string(sqlite3.sqlite3_column_blob(stmt,n), sqlite3.sqlite3_column_bytes(stmt,n)) end,
 	[sqlite3.SQLITE_NULL] = function() return nil end
 }
 
