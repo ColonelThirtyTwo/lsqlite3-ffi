@@ -27,6 +27,7 @@ sqlite_stmt.__index = sqlite_stmt
 local sqlite_blob = {}
 sqlite_blob.__index = sqlite_blob
 
+-- Set to true to enable collecting of stack trace information when a statement or blob is created.
 lsqlite3.DEBUG = false
 
 -- -------------------------- Library Methods -------------------------- --
@@ -106,7 +107,7 @@ function sqlite_db:close()
 	if r == sqlite3.SQLITE_OK then
 		self.db = nil
 	else
-		self.db:check(r)
+		self:check(r)
 	end
 end
 
@@ -174,16 +175,6 @@ function sqlite_db:check(ret)
 		error(self:errmsg())
 	end
 	return ret
-end
-
-function sqlite_db:checkstep(ret)
-	if ret == sqlite3.SQLITE_ROW then
-		return true
-	elseif ret == sqlite3.SQLITE_DONE then
-		return false
-	else
-		error(self:errmsg())
-	end
 end
 
 function sqlite_db:open_blob(db, tbl, column, row, write)
@@ -340,7 +331,14 @@ function sqlite_stmt:rows_unpacked()
 end
 
 function sqlite_stmt:step()
-	return self.db:checkstep(sqlite3.sqlite3_step(self.stmt))
+	local ret = sqlite3.sqlite3_step(self.stmt)
+	if ret == sqlite3.SQLITE_ROW then
+		return true
+	elseif ret == sqlite3.SQLITE_DONE then
+		return false
+	else
+		error(self:errmsg())
+	end
 end
 
 -- TODO: stmt:urows
