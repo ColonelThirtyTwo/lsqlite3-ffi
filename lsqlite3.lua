@@ -130,7 +130,7 @@ function sqlite_db:exec(sql, func, udata)
 		error("callback functions not supported yet",2)
 	end
 	
-	self.db:check(sqlite3.sqlite3_exec(self.db, sql, nil, nil, nil))
+	self:check(sqlite3.sqlite3_exec(self.db, sql, nil, nil, nil))
 end
 
 function sqlite_db:interrupt()
@@ -147,7 +147,7 @@ end
 
 function sqlite_db:prepare(sql)
 	local stmtptr = new_stmt_ptr()
-	self.db:check(sqlite3.sqlite3_prepare_v2(self.db, sql, #sql+1, stmtptr, nil))
+	self:check(sqlite3.sqlite3_prepare_v2(self.db, sql, #sql+1, stmtptr, nil))
 	local stmt = setmetatable(
 	{
 		stmt=stmtptr[0],
@@ -187,8 +187,7 @@ end
 
 function sqlite_db:open_blob(db, tbl, column, row, write)
 	local blobptr = new_blob_ptr()
-	local r = sqlite3.sqlite3_blob_open(self.db, db or "main", tbl, column, row, write, blobptr)
-	if r ~= sqlite3.SQLITE_OK then return nil end
+	self:check(sqlite3.sqlite3_blob_open(self.db, db or "main", tbl, column, row, write, blobptr))
 	local blob = setmetatable(
 	{
 		blob = blobptr[0],
