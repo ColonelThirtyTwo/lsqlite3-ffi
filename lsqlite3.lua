@@ -44,7 +44,7 @@ function lsqlite3.open(filename, mode)
 	local sdb = new_db_ptr()
 	local err = sqlite3.sqlite3_open_v2(filename, sdb, modes[mode or "create"] or error("unknown mode: "..tostring(mode),2), nil)
 	local db = sdb[0]
-	if err ~= sqlite3.SQLITE_OK then return nil, ffi.string(sqlite3.sqlite3_errmsg(db)) end
+	if err ~= sqlite3.SQLITE_OK then return nil, ffi.string(sqlite3.sqlite3_errmsg(db)), sqlite3.sqlite3_errcode(db) end
 	return setmetatable({
 		db = db,
 		stmts = {},
