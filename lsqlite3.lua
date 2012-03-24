@@ -1,6 +1,7 @@
 
 assert(jit, "lsqlite3_ffi must run on LuaJIT!")
 local ffi = require "ffi"
+local bit = require "bit"
 
 ffi.cdef(assert(io.open((LSQLITE3_FFI_PATH or ".").."/sqlite3.ffi")):read("*a"))
 local sqlite3 = ffi.load("sqlite3",true)
@@ -32,11 +33,18 @@ lsqlite3.DEBUG = false
 
 -- -------------------------- Library Methods -------------------------- --
 
-function lsqlite3.open(filename)
+local modes =
+{
+	read = sqlite3.SQLITE_OPEN_READONLY,
+	write = sqlite3.SQLITE_OPEN_READWRITE,
+	create = bit.bor(sqlite3.SQLITE_OPEN_READWRITE, sqlite3.SQLITE_OPEN_CREATE)
+}
+
+function lsqlite3.open(filename, mode)
 	local sdb = new_db_ptr()
-	local err = sqlite3.sqlite3_open(filename, sdb)
+	local err = sqlite3.sqlite3_open_v2(filename, sdb, modes[mode or "create"] or error("unknown mode: "..tostring(mode),2), nil)
 	local db = sdb[0]
-	if err ~= sqlite3.SQLITE_OK then return nil, sqlite3.sqlite3_errmsg(db) end
+	if err ~= sqlite3.SQLITE_OK then return nil, ffi.string(sqlite3.sqlite3_errmsg(db)) end
 	return setmetatable({
 		db = db,
 		stmts = {},
