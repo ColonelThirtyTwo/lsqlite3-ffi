@@ -1,5 +1,4 @@
 
-assert(jit, "lsqlite3_ffi must run on LuaJIT!")
 local ffi = require "ffi"
 local bit = require "bit"
 
@@ -57,7 +56,7 @@ end
 
 function lsqlite3.complete(str)
 	local r = sqlite3.sqlite3_complete(str)
-	if r == sqlite3.SQLITE_NOMEM then error("out of memory (sqlite)",2) end
+	if r == sqlite3.SQLITE_NOMEM then error("out of memory",2) end
 	return r ~= 0 and true or false
 end
 
@@ -180,7 +179,7 @@ end
 
 function sqlite_db:check(ret)
 	if ret ~= sqlite3.SQLITE_OK then
-		error(self:errmsg())
+		error(self:errmsg(),0)
 	end
 	return ret
 end
@@ -241,7 +240,7 @@ function sqlite_stmt:bind_blob(n,value,len)
 	elseif type(value) == "cdata" then
 		self.db:check(sqlite3.sqlite3_bind_blob(self.stmt, n, value, len, sqlite3_transient))
 	else
-		error("invalid bind type: "..type(value))
+		error("invalid bind type: "..type(value),2)
 	end
 end
 
@@ -253,7 +252,7 @@ function sqlite_stmt:bind_values(...)
 	local i = 1
 	local v = select(1,...)
 	while v do
-		self:bind(i,v) -- TODO: error checking?
+		self:bind(i,v)
 		i = i + 1
 		v = select(i,...)
 	end
@@ -345,7 +344,7 @@ function sqlite_stmt:step()
 	elseif ret == sqlite3.SQLITE_DONE then
 		return false
 	else
-		error(self:errmsg())
+		error(self:errmsg(),0)
 	end
 end
 
