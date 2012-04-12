@@ -344,7 +344,7 @@ function sqlite_stmt:step()
 	elseif ret == sqlite3.SQLITE_DONE then
 		return false
 	else
-		error(self:errmsg(),0)
+		error(self.db:errmsg(),0)
 	end
 end
 
