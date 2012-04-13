@@ -197,7 +197,7 @@ function sqlite_db:open_blob(db, tbl, column, row, write)
 end
 
 function sqlite_db:get_autocommit()
-	return sqlite3.sqlite3_get_autocommit(self.db)
+	return sqlite3.sqlite3_get_autocommit(self.db) ~= 0
 end
 
 function sqlite_db:dump_unfinalized_statements()
