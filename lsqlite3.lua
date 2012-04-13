@@ -32,8 +32,7 @@ lsqlite3.DEBUG = false
 
 -- -------------------------- Library Methods -------------------------- --
 
-local modes =
-{
+local modes = {
 	read = sqlite3.SQLITE_OPEN_READONLY,
 	write = sqlite3.SQLITE_OPEN_READWRITE,
 	create = bit.bor(sqlite3.SQLITE_OPEN_READWRITE, sqlite3.SQLITE_OPEN_CREATE)
@@ -195,6 +194,10 @@ function sqlite_db:open_blob(db, tbl, column, row, write)
 	},sqlite_blob)
 	self.blobs[blob] = blob
 	return blob
+end
+
+function sqlite_db:get_autocommit()
+	return sqlite3.sqlite3_get_autocommit(self.db)
 end
 
 function sqlite_db:dump_unfinalized_statements()
