@@ -1197,7 +1197,7 @@ function sqlite_stmt:bind(n, value, bloblen)
 	elseif t == "nil" then
 		self.db:check(sqlite3.sqlite3_bind_null(self.stmt, n))
 	elseif t == "cdata" then
-		if ffi.istype("uint64_t", value) then
+		if ffi.istype("int64_t", value) then
 			self.db:check(sqlite3.sqlite3_bind_int64(self.stmt, n, value))
 		else
 			self.db:check(sqlite3.sqlite3_bind_blob(self.stmt, n, value, bloblen, sqlite3_transient))
