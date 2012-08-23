@@ -961,16 +961,34 @@ local sqlite3_transient = ffi.cast("void*",-1)
 local value_handlers = {
 	[sqlite3.SQLITE_INTEGER] = function(stmt, n) return sqlite3.sqlite3_column_int(stmt, n) end,
 	[sqlite3.SQLITE_FLOAT] = function(stmt, n) return sqlite3.sqlite3_column_double(stmt, n) end,
-	[sqlite3.SQLITE_TEXT] = function(stmt, n) return ffi.string(sqlite3.sqlite3_column_text(stmt,n)) end,
+	[sqlite3.SQLITE_TEXT] = function(stmt, n) return ffi.string(sqlite3.sqlite3_column_text(stmt,n), sqlite3.sqlite3_column_bytes(stmt,n)) end,
 	[sqlite3.SQLITE_BLOB] = function(stmt, n) return sqlite3.sqlite3_column_blob(stmt,n), sqlite3.sqlite3_column_bytes(stmt,n) end,
 	[sqlite3.SQLITE_NULL] = function() return nil end
 }
 
 local lsqlite3 = {}
+
 local sqlite_db = {}
 sqlite_db.__index = sqlite_db
+function sqlite_db:__call(...)
+	return self:exec(...)
+end
+
 local sqlite_stmt = {}
-sqlite_stmt.__index = sqlite_stmt
+function sqlite_stmt:__index(k)
+	if type(k) == "number" then
+		return sqlite_stmt.get_value(self, k)
+	else
+		return sqlite_stmt[k]
+	end
+end
+function sqlite_stmt:__newindex(...)
+	sqlite_stmt.bind(self,...)
+end
+function sqlite_stmt:__call()
+	return self:step()
+end
+
 local sqlite_blob = {}
 sqlite_blob.__index = sqlite_blob
 
@@ -993,7 +1011,7 @@ function lsqlite3.open(filename, mode)
 	return setmetatable({
 		db = db,
 		stmts = {},
-		blobs = {}
+		blobs = {},
 	},sqlite_db)
 end
 function lsqlite3.open_memory()
@@ -1079,13 +1097,14 @@ function sqlite_db:errmsg()
 end
 sqlite_db.error_message = sqlite_db.errmsg
 
-function sqlite_db:exec(sql, func, udata)
+function sqlite_db:exec(sql, func)
 	if func then
-		-- TODO: db:exec callbacks
-		error("callback functions not supported yet",2)
+		local cb = ffi.cast("int (*callback)(void*,int,char**,char**)", func)
+		self:check(sqlite3.sqlite3_exec(self.db, sql, cb, nil, nil))
+		cb:free()
+	else
+		self:check(sqlite3.sqlite3_exec(self.db, sql, nil, nil, nil))
 	end
-	
-	self:check(sqlite3.sqlite3_exec(self.db, sql, nil, nil, nil))
 end
 
 function sqlite_db:interrupt()
@@ -1167,7 +1186,7 @@ end
 
 -- -------------------------- Statement Methods -------------------------- --
 
-function sqlite_stmt:bind(n, value)
+function sqlite_stmt:bind(n, value, bloblen)
 	local t = type(value)
 	if t == "string" then
 		self.db:check(sqlite3.sqlite3_bind_text(self.stmt, n, value, #value+1, sqlite3_transient))
@@ -1178,7 +1197,11 @@ function sqlite_stmt:bind(n, value)
 	elseif t == "nil" then
 		self.db:check(sqlite3.sqlite3_bind_null(self.stmt, n))
 	elseif t == "cdata" then
-		self.db:check(sqlite3.sqlite3_bind_int64(self.stmt, n, ffi.cast("sqlite3_int64",value)))
+		if ffi.istype("uint64_t", value) then
+			self.db:check(sqlite3.sqlite3_bind_int64(self.stmt, n, value))
+		else
+			self.db:check(sqlite3.sqlite3_bind_blob(self.stmt, n, value, bloblen, sqlite3_transient))
+		end
 	else error("invalid bind type: "..t,2) end
 end
 
@@ -1199,12 +1222,9 @@ end
 -- TODO: stmt:bind_parameter_name
 
 function sqlite_stmt:bind_values(...)
-	local i = 1
-	local v = select(1,...)
-	while v do
-		self:bind(i,v)
-		i = i + 1
-		v = select(i,...)
+	local l=select("#",...)
+	for i=1,l do
+		self:bind(i,select(i,...))
 	end
 end
 
