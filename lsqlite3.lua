@@ -960,7 +960,7 @@ local sqlite3_transient = ffi.cast("void*",-1)
 local value_handlers = {
 	[sqlite3.SQLITE_INTEGER] = function(stmt, n) return sqlite3.sqlite3_column_int(stmt, n) end,
 	[sqlite3.SQLITE_FLOAT] = function(stmt, n) return sqlite3.sqlite3_column_double(stmt, n) end,
-	[sqlite3.SQLITE_TEXT] = function(stmt, n) return ffi.string(sqlite3.sqlite3_column_text(stmt,n), sqlite3.sqlite3_column_bytes(stmt,n)) end,
+	[sqlite3.SQLITE_TEXT] = function(stmt, n) return ffi.string(sqlite3.sqlite3_column_text(stmt,n), sqlite3.sqlite3_column_bytes(stmt,n)-1) end,
 	[sqlite3.SQLITE_BLOB] = function(stmt, n) return sqlite3.sqlite3_column_blob(stmt,n), sqlite3.sqlite3_column_bytes(stmt,n) end,
 	[sqlite3.SQLITE_NULL] = function() return nil end
 }
